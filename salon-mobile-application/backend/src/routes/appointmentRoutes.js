@@ -4,6 +4,7 @@ const {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  completeAppointment,
   deleteAppointment
 } = require("../controllers/appointmentController");
 const { protect } = require("../middleware/authMiddleware");
@@ -19,6 +20,7 @@ router.use(protect);
 
 router.post("/", createAppointmentValidation, validateRequest, createAppointment);
 router.get("/", getAppointments);
+router.put("/:id/complete", completeAppointment);
 router.get("/:id", getAppointmentById);
 router.put("/:id", updateAppointmentValidation, validateRequest, updateAppointment);
 router.delete("/:id", deleteAppointment);

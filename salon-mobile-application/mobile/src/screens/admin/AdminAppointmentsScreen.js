@@ -118,7 +118,11 @@ export default function AdminAppointmentsScreen({ navigation }) {
 
   const updateStatus = async (id, status) => {
     try {
-      await api.put(`/appointments/${id}`, { status });
+      if (status === "completed" && user?.role === "admin") {
+        await api.put(`/appointments/${id}/complete`);
+      } else {
+        await api.put(`/appointments/${id}`, { status });
+      }
       await fetchAppointments();
     } catch (error) {
       const validationMessage = Array.isArray(error?.response?.data?.errors)
@@ -126,7 +130,7 @@ export default function AdminAppointmentsScreen({ navigation }) {
         : "";
       const fallbackMessage =
         status === "completed" && error?.response?.data?.message === "Validation failed"
-          ? "The backend rejected completed status. Redeploy the Railway backend with the latest appointment completion changes, then try again."
+          ? "The backend rejected completion. Redeploy the Railway backend with the latest appointment completion endpoint, then try again."
           : "";
       Alert.alert(
         "Error",

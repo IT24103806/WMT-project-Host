@@ -207,6 +207,35 @@ const updateAppointment = async (req, res, next) => {
   }
 };
 
+const completeAppointment = async (req, res, next) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only admin can force-complete appointments" });
+    }
+
+    const appointment = await resolveAppointmentByRef(req.params.id, req.user);
+    if (!appointment) {
+      return res.status(404).json({ message: "Invalid appointment ID" });
+    }
+
+    const previousStatus = String(appointment.status || "").toLowerCase();
+    if (!["approved", "completed"].includes(previousStatus)) {
+      return res.status(400).json({ message: "Only approved appointments can be completed" });
+    }
+
+    appointment.status = "completed";
+    const updated = await appointment.save();
+    const populated = await updated.populate(["userId", "serviceId", "staffId"]);
+    if (previousStatus !== "completed") {
+      sendStatusChangedEmail(populated).catch(() => {});
+    }
+
+    return res.status(200).json({ message: "Appointment completed", data: populated });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const deleteAppointment = async (req, res, next) => {
   try {
     const appointment = await resolveAppointmentByRef(req.params.id, req.user);
@@ -231,5 +260,6 @@ module.exports = {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  completeAppointment,
   deleteAppointment
 };
