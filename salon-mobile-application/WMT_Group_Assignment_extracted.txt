@@ -1,0 +1,199 @@
+PAGES 8
+
+===== PAGE 1 =====
+
+Faculty of Computing
+BSc (Hons) in Software Engineering
+Year 2 Semester 2 (2026)
+SE2020 – Web and Mobile Technologies Group Assignment
+Group Assignment: Full Stack Mobile Application
+Weight:20% (Marked out of 100 and scaled)
+Group Size:6 Students
+Duration:8 Weeks
+1. Assignment Overview
+Students must design and develop a Full Stack Mobile Application using:
+•Frontend:React Native
+•Backend:Node.js + Express.js
+•Database:MongoDB
+The system must be deployed to any hosting platform (AWS, Render, Railway, Digi-
+talOcean, etc.).
+Students may choose any system title/domain, butapproval is required.
+2. Core System Requirements (Mandatory)
+Every group project MUST include:
+1.User Authentication
+•User Registration
+•Login
+•Password hashing
+•JWT-based authentication
+•Protected routes
+1
+
+===== PAGE 2 =====
+
+2.Hosting Requirement
+•Backend must be hosted online
+•Mobile app must connect to hosted API
+•Live demo must show deployed version
+•(Localhost demo not allowed for final evaluation)
+3. Workload Distribution (Equal for 6 Members)
+Each member MUST handle a clearly defined module.
+Group – Authentication
+Responsible for:
+•User registration API
+•Login API
+•Password hashing
+•JWT-based authentication
+Each Member – Core Entity CRUD
+Responsible for:
+•Full CRUD backend for main entity
+•File upload
+•Mobile UI front end
+•API routes
+•Controllers
+•Integration with database
+•Testing
+Example: Product Management (add/remove/update/delete products) or Task Man-
+agement / Appointment Management System / User Management
+4. Technical Requirements
+Backend Requirements
+•RESTful APIs
+•Proper folder structure
+•Middleware usage
+•Error handling
+•Status codes
+5. Mobile Requirements
+•Proper navigation
+•Functional components & hooks
+•Clean UI
+2
+
+===== PAGE 3 =====
+
+•Form validation
+•API integration
+•No hardcoded data
+Must include:
+•Problem statement
+•System architecture diagram
+•Database schema diagram
+•API endpoint table
+•Team responsibility breakdown
+6. Important Rules
+•All 6 members must attend viva.
+•If a student cannot explain their module→individual marks reduced.
+•Plagiarism equals Zero marks.
+•AI tools are allowed for learning support, not full system generation.
+•No Firebase-only projects allowed (must use Node + MongoDB backend).
+7. Example Project Ideas (Optional)
+•Event Booking App
+•Clinic Appointment System
+•Food Ordering App
+•Hostel Management App
+•E-commerce Mobile App
+•Fitness Tracking System
+You can use the same project that you are using for ITP project / ML&AI projects.
+3
+
+===== PAGE 4 =====
+
+Example Project
+Hostel Management Mobile Application
+(React Native + Node.js + MongoDB + Hosted Backend)
+Core System Overview
+The system will allow:
+•Students to register & login
+•Admin to manage rooms
+•Students to request rooms
+•Admin to approve/reject bookings
+•Image upload for room photos
+Main Entities
+Entity 1: Room
+This is the primary entity
+Fields:
+•roomNumber
+•roomType(Single / Double / Triple)
+•pricePerMonth
+•capacity
+•currentOccupancy
+•description
+•image
+•availabilityStatus
+CRUD Required:
+•Create Room (Admin)
+•View Rooms (All users)
+•Update Room (Admin)
+•Delete Room (Admin)
+4
+
+===== PAGE 5 =====
+
+Entity 2: Booking
+This links users to rooms.
+Fields:
+•userId(reference to User)
+•roomId(reference to Room)
+•bookingDate
+•startDate
+•endDate
+•status(Pending / Approved / Rejected)
+CRUD Required:
+•Create booking request
+•View booking history
+•Update status (Admin approval)
+•Cancel booking
+5
+
+===== PAGE 6 =====
+
+Member 1 – Entity 1 Lead (Room Management API)
+Responsible for:
+•Full CRUD for Room
+–Create room (Admin)
+–Get all rooms
+–Get single room
+–Update room
+–Delete room
+Business Logic:
+•Update availability status
+•Adjust current occupancy
+Viva Focus:
+•Explain controller logic
+•Explain route design
+•Explain data validation
+Technical Responsibilities:
+•Navigation setup
+•API integration
+•Form validation
+•State management
+•Error message display
+Member 6 – Image Upload & Deployment Engineer
+Responsibilities:
+Image Upload:
+•Upload room image (Multer)
+•Validate file type & size
+6
+
+===== PAGE 7 =====
+
+•Store in server/cloud
+•Send image URL to frontend
+Deployment:
+•Deploy backend (AWS / Render / Railway)
+•Configure environment variables
+•Ensure MongoDB Atlas connection
+•Test live API endpoints
+Viva Focus:
+•Explain deployment steps
+•Explain environment config
+•Explain image handling pipeline
+7
+
+===== PAGE 8 =====
+
+Individual Mark Sheet (Common for All 6 Members)
+A. Code / Technical Implementation – 40 Marks
+(Assessed from Git + System Testing + Module Ownership)
+B. Individual Viva – 60 Marks
+(Each student questioned individually)
+8
+

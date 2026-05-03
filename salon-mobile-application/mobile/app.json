@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Salon Management",
+    "slug": "salon-management-app",
+    "owner": "eranga_m",
+    "scheme": "salonoski",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f4f1eb"
+      }
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.88:5000/api"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-web-browser"
+    ]
+  }
+}
