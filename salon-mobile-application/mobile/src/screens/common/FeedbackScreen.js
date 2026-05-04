@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "../../components/ScreenContainer";
 import InputField from "../../components/InputField";
 import PrimaryButton from "../../components/PrimaryButton";
@@ -16,25 +17,33 @@ import {
   validateRating
 } from "../../utils/validation";
 
-const RATING_OPTIONS = ["1", "2", "3", "4", "5"];
+const emptyFeedbackForm = { appointmentId: "", rating: "", comment: "" };
 
-function PickerModal({ visible, title, options, onSelect, onClose, styles }) {
+function StarRating({ value, onChange, disabled = false, styles, colors }) {
+  const numericValue = Number(value || 0);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{title}</Text>
-          <ScrollView style={{ maxHeight: 260 }}>
-            {options.map((option) => (
-              <Pressable key={option} style={styles.optionButton} onPress={() => onSelect(option)}>
-                <Text style={styles.optionText}>{option}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <PrimaryButton title="Close" variant="outline" onPress={onClose} />
-        </View>
-      </View>
-    </Modal>
+    <View style={styles.starRow}>
+      {[1, 2, 3, 4, 5].map((rating) => {
+        const selected = rating <= numericValue;
+        return (
+          <Pressable
+            key={rating}
+            style={styles.starButton}
+            onPress={() => !disabled && onChange(String(rating))}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={`${rating} star${rating > 1 ? "s" : ""}`}
+          >
+            <Ionicons
+              name={selected ? "star" : "star-outline"}
+              size={30}
+              color={selected ? colors.warning || "#f5b301" : colors.muted}
+            />
+          </Pressable>
+        );
+      })}
+      <Text style={styles.ratingValue}>{numericValue ? `${numericValue}/5` : "Select rating"}</Text>
+    </View>
   );
 }
 
@@ -47,11 +56,12 @@ export default function FeedbackScreen() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showRatingPicker, setShowRatingPicker] = useState(false);
-  const [form, setForm] = useState({ appointmentId: "", rating: "5", comment: "" });
+  const [form, setForm] = useState(emptyFeedbackForm);
   const [reply, setReply] = useState({ appointmentId: "", message: "" });
   const [formErrors, setFormErrors] = useState({});
   const [replyErrors, setReplyErrors] = useState({});
+  const [editingFeedbackId, setEditingFeedbackId] = useState("");
+  const [savingFeedback, setSavingFeedback] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -77,14 +87,34 @@ export default function FeedbackScreen() {
     fetchAll();
   }, [fetchAll]);
 
-  const submitFeedback = async () => {
+  const userId = String(user?._id || user?.id || "");
+
+  const isOwnFeedback = (item) => {
+    const customerId = item?.customerId?._id || item?.customerId;
+    return user?.role === "customer" && userId && String(customerId || "") === userId;
+  };
+
+  const updateFormField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  const resetFeedbackForm = () => {
+    setForm(emptyFeedbackForm);
+    setFormErrors({});
+    setEditingFeedbackId("");
+  };
+
+  const buildFeedbackPayload = () => {
     const cleaned = {
       appointmentId: trimText(form.appointmentId),
       rating: trimText(form.rating),
       comment: trimText(form.comment).replace(/\s+/g, " ")
     };
     const nextErrors = {
-      appointmentId: validateAppointmentNumber(cleaned.appointmentId),
+      appointmentId: editingFeedbackId ? "" : validateAppointmentNumber(cleaned.appointmentId),
       rating: validateRating(cleaned.rating),
       comment: validateLongText(cleaned.comment, "Feedback comment", { min: 5, max: 400 })
     };
@@ -93,20 +123,51 @@ export default function FeedbackScreen() {
     setFormErrors(activeErrors);
     if (Object.keys(activeErrors).length) {
       Alert.alert("Validation", Object.values(activeErrors)[0]);
+      return null;
+    }
+    return cleaned;
+  };
+
+  const submitFeedback = async () => {
+    const cleaned = buildFeedbackPayload();
+    if (!cleaned) {
       return;
     }
     try {
-      await api.post("/feedbacks", {
-        appointmentId: Number(cleaned.appointmentId),
-        rating: Number(cleaned.rating),
-        comment: cleaned.comment
-      });
-      setForm({ appointmentId: "", rating: "5", comment: "" });
-      setFormErrors({});
+      setSavingFeedback(true);
+      if (editingFeedbackId) {
+        await api.put(`/feedbacks/${editingFeedbackId}`, {
+          rating: Number(cleaned.rating),
+          comment: cleaned.comment
+        });
+      } else {
+        await api.post("/feedbacks", {
+          appointmentId: Number(cleaned.appointmentId),
+          rating: Number(cleaned.rating),
+          comment: cleaned.comment
+        });
+      }
+      resetFeedbackForm();
       fetchAll();
     } catch (error) {
-      Alert.alert("Failed", error?.response?.data?.message || "Could not submit feedback");
+      Alert.alert("Failed", error?.response?.data?.message || "Could not save feedback");
+    } finally {
+      setSavingFeedback(false);
     }
+  };
+
+  const startEditFeedback = (item) => {
+    if (!isOwnFeedback(item)) {
+      Alert.alert("Not allowed", "You can edit only your own feedback.");
+      return;
+    }
+    setEditingFeedbackId(item._id);
+    setForm({
+      appointmentId: String(item.appointmentId?.appointmentNumber || ""),
+      rating: String(item.rating || ""),
+      comment: item.comment || ""
+    });
+    setFormErrors({});
   };
 
   const submitReply = async () => {
@@ -137,13 +198,32 @@ export default function FeedbackScreen() {
     }
   };
 
-  const deleteFeedback = async (id) => {
+  const deleteFeedback = async (item) => {
+    const canDelete = user?.role === "admin" || isOwnFeedback(item);
+    if (!canDelete) {
+      Alert.alert("Not allowed", "You can delete only your own feedback.");
+      return;
+    }
     try {
-      await api.delete(`/feedbacks/${id}`);
+      await api.delete(`/feedbacks/${item._id}`);
+      if (editingFeedbackId === item._id) {
+        resetFeedbackForm();
+      }
       fetchAll();
     } catch (error) {
       Alert.alert("Failed", error?.response?.data?.message || "Could not delete feedback");
     }
+  };
+
+  const confirmDeleteFeedback = (item) => {
+    Alert.alert(
+      "Delete feedback",
+      "Delete this feedback permanently?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteFeedback(item) }
+      ]
+    );
   };
 
   return (
@@ -165,36 +245,56 @@ export default function FeedbackScreen() {
           <View>
             {user?.role === "customer" ? (
               <View style={styles.formCard}>
-                <Text style={styles.formTitle}>Rate Beautician</Text>
-                <Text style={styles.hint}>
-                  Your appointment IDs:{" "}
-                  {appointments.length
-                    ? appointments.map((item) => item.appointmentNumber).join(", ")
-                    : "No appointments"}
-                </Text>
-                <InputField
-                  label="Appointment ID"
-                  value={form.appointmentId}
-                  onChangeText={(value) => setForm((prev) => ({ ...prev, appointmentId: value.replace(/\D/g, "") }))}
-                  placeholder="Enter appointment id"
-                  keyboardType="number-pad"
-                  error={formErrors.appointmentId}
-                />
+                <View style={styles.formHeader}>
+                  <Text style={styles.formTitle}>{editingFeedbackId ? "Edit Feedback" : "Rate Beautician"}</Text>
+                  {editingFeedbackId ? (
+                    <Pressable onPress={resetFeedbackForm}>
+                      <Text style={styles.cancelEditText}>Cancel</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {!editingFeedbackId ? (
+                  <>
+                    <Text style={styles.hint}>
+                      Your appointment IDs:{" "}
+                      {appointments.length
+                        ? appointments.map((item) => item.appointmentNumber).join(", ")
+                        : "No appointments"}
+                    </Text>
+                    <InputField
+                      label="Appointment ID"
+                      value={form.appointmentId}
+                      onChangeText={(value) => updateFormField("appointmentId", value.replace(/\D/g, ""))}
+                      placeholder="Enter appointment id"
+                      keyboardType="number-pad"
+                      error={formErrors.appointmentId}
+                    />
+                  </>
+                ) : (
+                  <Text style={styles.hint}>Editing appointment ID {form.appointmentId || "N/A"}</Text>
+                )}
                 <Text style={styles.label}>Rating</Text>
-                <Pressable style={styles.pickerField} onPress={() => setShowRatingPicker(true)}>
-                  <Text style={styles.pickerText}>{form.rating}</Text>
-                </Pressable>
+                <StarRating
+                  value={form.rating}
+                  onChange={(value) => updateFormField("rating", value)}
+                  styles={styles}
+                  colors={colors}
+                />
                 {!!formErrors.rating && <Text style={styles.errorText}>{formErrors.rating}</Text>}
                 <InputField
                   label="Comment"
                   value={form.comment}
-                  onChangeText={(value) => setForm((prev) => ({ ...prev, comment: value }))}
+                  onChangeText={(value) => updateFormField("comment", value)}
                   placeholder="Share your feedback"
                   maxLength={400}
                   autoCapitalize="sentences"
                   error={formErrors.comment}
                 />
-                <PrimaryButton title="Submit Feedback" onPress={submitFeedback} />
+                <PrimaryButton
+                  title={editingFeedbackId ? "Save Feedback" : "Submit Feedback"}
+                  onPress={submitFeedback}
+                  loading={savingFeedback}
+                />
               </View>
             ) : (
               <View style={styles.formCard}>
@@ -221,38 +321,40 @@ export default function FeedbackScreen() {
             )}
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.meta}>Appointment ID: {item.appointmentId?.appointmentNumber || "N/A"}</Text>
-            <Text style={styles.meta}>Rating: {item.rating}/5</Text>
-            <Text style={styles.meta}>Comment: {item.comment}</Text>
-            <Text style={styles.meta}>Beautician: {item.staffId?.name || "N/A"}</Text>
-            <Text style={styles.meta}>Customer: {item.customerId?.name || "N/A"}</Text>
-            {(item.replies || []).map((entry) => (
-              <Text key={entry._id} style={styles.reply}>
-                {entry.byRole}: {entry.message}
-              </Text>
-            ))}
-            {user?.role === "admin" ? (
-              <PrimaryButton
-                title="Delete Feedback"
-                style={{ marginTop: 8 }}
-                onPress={() => deleteFeedback(item._id)}
-              />
-            ) : null}
-          </View>
-        )}
-      />
-      <PickerModal
-        visible={showRatingPicker}
-        title="Select Rating"
-        options={RATING_OPTIONS}
-        styles={styles}
-        onSelect={(value) => {
-          setForm((prev) => ({ ...prev, rating: value }));
-          setShowRatingPicker(false);
+        renderItem={({ item }) => {
+          const ownFeedback = isOwnFeedback(item);
+          return (
+            <View style={styles.card}>
+              <Text style={styles.meta}>Appointment ID: {item.appointmentId?.appointmentNumber || "N/A"}</Text>
+              <StarRating value={String(item.rating || "")} disabled styles={styles} colors={colors} />
+              <Text style={styles.meta}>Comment: {item.comment}</Text>
+              <Text style={styles.meta}>Beautician: {item.staffId?.name || "N/A"}</Text>
+              <Text style={styles.meta}>Customer: {item.customerId?.name || "N/A"}</Text>
+              {(item.replies || []).map((entry) => (
+                <Text key={entry._id} style={styles.reply}>
+                  {entry.byRole}: {entry.message}
+                </Text>
+              ))}
+              {ownFeedback || user?.role === "admin" ? (
+                <View style={styles.actionRow}>
+                  {ownFeedback ? (
+                    <PrimaryButton
+                      title="Edit"
+                      variant="outline"
+                      style={styles.actionButton}
+                      onPress={() => startEditFeedback(item)}
+                    />
+                  ) : null}
+                  <PrimaryButton
+                    title="Delete"
+                    style={styles.actionButton}
+                    onPress={() => confirmDeleteFeedback(item)}
+                  />
+                </View>
+              ) : null}
+            </View>
+          );
         }}
-        onClose={() => setShowRatingPicker(false)}
       />
     </ScreenContainer>
   );
@@ -277,6 +379,16 @@ const createStyles = (colors) =>
       fontWeight: "700",
       marginBottom: 8
     },
+    formHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12
+    },
+    cancelEditText: {
+      color: colors.primary,
+      fontWeight: "700"
+    },
     hint: {
       color: colors.muted,
       marginBottom: 8
@@ -286,17 +398,20 @@ const createStyles = (colors) =>
       color: colors.text,
       fontWeight: "600"
     },
-    pickerField: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 11,
-      backgroundColor: colors.card,
+    starRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
       marginBottom: 12
     },
-    pickerText: {
-      color: colors.text
+    starButton: {
+      paddingVertical: 4,
+      paddingRight: 2
+    },
+    ratingValue: {
+      color: colors.text,
+      fontWeight: "700",
+      marginLeft: 6
     },
     card: {
       backgroundColor: colors.card,
@@ -312,36 +427,17 @@ const createStyles = (colors) =>
       color: colors.muted,
       marginTop: 4
     },
+    actionRow: {
+      flexDirection: "row",
+      gap: 10,
+      marginTop: 10
+    },
+    actionButton: {
+      flex: 1
+    },
     errorText: {
       color: colors.danger,
       marginTop: -6,
       marginBottom: 8
-    },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.35)",
-      justifyContent: "flex-end"
-    },
-    modalCard: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      padding: 16
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 10
-    },
-    optionButton: {
-      backgroundColor: colors.card,
-      borderRadius: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      marginBottom: 8
-    },
-    optionText: {
-      color: colors.text
     }
   });
