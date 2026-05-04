@@ -310,13 +310,33 @@ export default function ManageInventoryScreen({ audience = "customer", reportTit
     }
   };
 
-  const remove = async (id) => {
+  const removeProduct = async (id) => {
     try {
       await api.delete(`/inventory/products/${id}`);
+      if (String(form.id || "") === String(id || "")) {
+        setForm(initialForm);
+        setFormErrors({});
+        setSelectedImage(null);
+      }
       await fetchAll();
     } catch (requestError) {
       Alert.alert("Error", requestError?.response?.data?.message || "Delete failed");
     }
+  };
+
+  const confirmRemove = (item) => {
+    Alert.alert(
+      "Delete product",
+      `Delete ${item?.name || "this product"} from inventory? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => removeProduct(item?._id)
+        }
+      ]
+    );
   };
 
   const updateFormField = (field, value) => {
@@ -492,7 +512,7 @@ export default function ManageInventoryScreen({ audience = "customer", reportTit
                     });
                   }}
                 />
-                <PrimaryButton title="Delete" style={styles.rowButton} onPress={() => remove(item._id)} />
+                <PrimaryButton title="Delete" style={styles.rowButton} onPress={() => confirmRemove(item)} />
               </View>
             </View>
           );
