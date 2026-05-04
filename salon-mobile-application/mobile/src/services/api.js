@@ -1,7 +1,17 @@
 import axios from "axios";
+import Constants from "expo-constants";
 import { getToken } from "./authStorage";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = (
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.apiUrl ||
+  Constants.manifest?.extra?.apiUrl ||
+  ""
+).replace(/\/+$/, "");
+
+if (!API_URL) {
+  throw new Error("Missing API URL. Set EXPO_PUBLIC_API_URL in mobile/.env.");
+}
 
 const api = axios.create({
   baseURL: API_URL,
