@@ -1,12 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import { ResponseType } from "expo-auth-session";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../constants/theme";
 
 WebBrowser.maybeCompleteAuthSession();
+
+const isExpoProxyRedirect = (uri) => String(uri || "").startsWith("https://auth.expo.io/");
+
+const buildExpoProxyStartUrl = ({ authUrl, proxyRedirectUri, returnUrl }) =>
+  `${proxyRedirectUri}/start?authUrl=${encodeURIComponent(authUrl)}&returnUrl=${encodeURIComponent(returnUrl)}`;
 
 export default function SocialAuthButtons({
   preferredName = "",
@@ -32,52 +39,70 @@ export default function SocialAuthButtons({
     webClientId: googleWebClientId,
     androidClientId: googleAndroidClientId,
     iosClientId: googleIosClientId,
+    responseType: ResponseType.Token,
     scopes: ["openid", "profile", "email"],
     redirectUri: googleRedirectUri,
     selectAccount: true
   });
 
+  const completeGoogleLogin = async (response) => {
+    if (response?.type !== "success") return;
+    const idToken = response?.params?.id_token || response?.authentication?.idToken || "";
+    const accessToken = response?.params?.access_token || response?.authentication?.accessToken || "";
+    const tokenKey = idToken || accessToken;
+    if (!tokenKey) {
+      Alert.alert("Google login failed", "No Google authentication token was received. Please try again.");
+      return;
+    }
+    if (handledGoogleTokenRef.current === tokenKey) {
+      return;
+    }
+    try {
+      setBusyProvider("google");
+      await socialLogin({
+        provider: "google",
+        idToken,
+        accessToken,
+        name: preferredName,
+        title: preferredTitle,
+        phone: preferredPhone
+      });
+      handledGoogleTokenRef.current = tokenKey;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message || error?.message || "Unable to login with Google right now.";
+      Alert.alert("Google login failed", message);
+    } finally {
+      setBusyProvider("");
+    }
+  };
+
   useEffect(() => {
-    const executeGoogleLogin = async () => {
-      if (googleResponse?.type !== "success") return;
-      const idToken = googleResponse?.params?.id_token || googleResponse?.authentication?.idToken || "";
-      const accessToken =
-        googleResponse?.params?.access_token || googleResponse?.authentication?.accessToken || "";
-      const tokenKey = idToken || accessToken;
-      if (!tokenKey) {
-        Alert.alert("Google login failed", "No Google authentication token was received. Please try again.");
-        return;
-      }
-      if (handledGoogleTokenRef.current === tokenKey) {
-        return;
-      }
-      try {
-        setBusyProvider("google");
-        await socialLogin({
-          provider: "google",
-          idToken,
-          accessToken,
-          name: preferredName,
-          title: preferredTitle,
-          phone: preferredPhone
-        });
-        handledGoogleTokenRef.current = tokenKey;
-      } catch (error) {
-        const message =
-          error?.response?.data?.message || error?.message || "Unable to login with Google right now.";
-        Alert.alert("Google login failed", message);
-      } finally {
-        setBusyProvider("");
-      }
-    };
-    executeGoogleLogin();
-  }, [googleResponse, preferredName, preferredPhone, preferredTitle, socialLogin]);
+    completeGoogleLogin(googleResponse);
+  }, [googleResponse]);
 
   const startGoogle = async () => {
     if (!googleRequest || busyProvider) return;
     handledGoogleTokenRef.current = "";
     if (!String(googleRequest.url || "").includes("redirect_uri=")) {
       Alert.alert("Google login config error", "redirect_uri is missing from auth request.");
+      return;
+    }
+    if (isExpoProxyRedirect(googleRedirectUri)) {
+      const returnUrl = AuthSession.getDefaultReturnUrl();
+      const result = await WebBrowser.openAuthSessionAsync(
+        buildExpoProxyStartUrl({
+          authUrl: googleRequest.url,
+          proxyRedirectUri: googleRedirectUri,
+          returnUrl
+        }),
+        returnUrl
+      );
+      if (result.type === "success" && result.url) {
+        await completeGoogleLogin(googleRequest.parseReturnUrl(result.url));
+      } else if (result.type !== "cancel") {
+        Alert.alert("Google login failed", "Google sign-in was not completed. Please try again.");
+      }
       return;
     }
     await promptGoogle();
