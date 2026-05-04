@@ -150,15 +150,43 @@ const replyFeedbackByAppointment = async (req, res, next) => {
   }
 };
 
-const deleteFeedback = async (req, res, next) => {
+const updateFeedback = async (req, res, next) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Only admin can delete feedback" });
-    }
-    const feedback = await Feedback.findByIdAndDelete(req.params.id);
+    const feedback = await Feedback.findById(req.params.id);
     if (!feedback) {
       return res.status(404).json({ message: "Feedback not found" });
     }
+    if (String(feedback.customerId) !== String(req.user._id)) {
+      return res.status(403).json({ message: "You can edit only your own feedback" });
+    }
+
+    feedback.rating = req.body.rating;
+    feedback.comment = req.body.comment;
+    await feedback.save();
+
+    const updated = await Feedback.findById(feedback._id)
+      .populate({ path: "appointmentId", populate: [{ path: "serviceId" }, { path: "staffId" }] })
+      .populate("customerId", "name email title")
+      .populate("staffId", "name staffCode role")
+      .populate("replies.byUserId", "name role");
+
+    return res.status(200).json({ message: "Feedback updated", data: updated });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const deleteFeedback = async (req, res, next) => {
+  try {
+    const feedback = await Feedback.findById(req.params.id);
+    if (!feedback) {
+      return res.status(404).json({ message: "Feedback not found" });
+    }
+    const isOwner = String(feedback.customerId) === String(req.user._id);
+    if (req.user.role !== "admin" && !isOwner) {
+      return res.status(403).json({ message: "You can delete only your own feedback" });
+    }
+    await feedback.deleteOne();
     return res.status(200).json({ message: "Feedback deleted" });
   } catch (error) {
     return next(error);
@@ -170,5 +198,6 @@ module.exports = {
   getFeedbacks,
   replyFeedback,
   replyFeedbackByAppointment,
+  updateFeedback,
   deleteFeedback
 };
