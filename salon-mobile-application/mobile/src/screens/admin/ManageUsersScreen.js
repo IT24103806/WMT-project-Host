@@ -20,6 +20,9 @@ const APPROVAL_OPTIONS = [
   { label: "Pending", value: "pending" }
 ];
 
+const ROLE_VALUES = ROLE_OPTIONS.map((option) => option.value);
+const APPROVAL_VALUES = APPROVAL_OPTIONS.map((option) => option.value);
+
 const prettyRole = (role) => {
   const normalized = String(role || "").toLowerCase();
   if (normalized === "staff") return "Beautician";
@@ -88,6 +91,14 @@ export default function ManageUsersScreen() {
 
   const saveUser = async () => {
     if (!editingUser?._id) return;
+    if (!ROLE_VALUES.includes(draftRole)) {
+      Alert.alert("Validation", "Select a valid role before saving.");
+      return;
+    }
+    if (draftRole === "staff" && !APPROVAL_VALUES.includes(draftApproval)) {
+      Alert.alert("Validation", "Select a valid beautician approval status.");
+      return;
+    }
     try {
       setSaving(true);
       const payload = {
