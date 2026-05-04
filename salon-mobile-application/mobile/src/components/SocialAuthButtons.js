@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
-import { ResponseType } from "expo-auth-session";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { FONTS } from "../constants/theme";
@@ -27,25 +26,29 @@ export default function SocialAuthButtons({
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
   const googleRedirectUri =
     process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI || "https://auth.expo.io/@eranga_m/salon-management-app";
+  const hasGoogleClient = Boolean(googleWebClientId || googleAndroidClientId || googleIosClientId);
 
   const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
     webClientId: googleWebClientId,
     androidClientId: googleAndroidClientId,
     iosClientId: googleIosClientId,
-    responseType: ResponseType.IdToken,
     scopes: ["openid", "profile", "email"],
-    redirectUri: googleRedirectUri
+    redirectUri: googleRedirectUri,
+    selectAccount: true
   });
 
   useEffect(() => {
     const executeGoogleLogin = async () => {
       if (googleResponse?.type !== "success") return;
       const idToken = googleResponse?.params?.id_token || googleResponse?.authentication?.idToken || "";
-      if (!idToken) {
-        Alert.alert("Google login failed", "No identity token received from Google.");
+      const accessToken =
+        googleResponse?.params?.access_token || googleResponse?.authentication?.accessToken || "";
+      const tokenKey = idToken || accessToken;
+      if (!tokenKey) {
+        Alert.alert("Google login failed", "No Google authentication token was received. Please try again.");
         return;
       }
-      if (handledGoogleTokenRef.current === idToken) {
+      if (handledGoogleTokenRef.current === tokenKey) {
         return;
       }
       try {
@@ -53,11 +56,12 @@ export default function SocialAuthButtons({
         await socialLogin({
           provider: "google",
           idToken,
+          accessToken,
           name: preferredName,
           title: preferredTitle,
           phone: preferredPhone
         });
-        handledGoogleTokenRef.current = idToken;
+        handledGoogleTokenRef.current = tokenKey;
       } catch (error) {
         const message =
           error?.response?.data?.message || error?.message || "Unable to login with Google right now.";
@@ -71,6 +75,7 @@ export default function SocialAuthButtons({
 
   const startGoogle = async () => {
     if (!googleRequest || busyProvider) return;
+    handledGoogleTokenRef.current = "";
     if (!String(googleRequest.url || "").includes("redirect_uri=")) {
       Alert.alert("Google login config error", "redirect_uri is missing from auth request.");
       return;
@@ -88,7 +93,7 @@ export default function SocialAuthButtons({
         <View style={styles.divider} />
       </View>
 
-      {!googleWebClientId ? (
+      {!hasGoogleClient ? (
         <Text style={styles.warningText}>
           Missing Google auth env value. Please restart Expo after updating `.env`.
         </Text>
