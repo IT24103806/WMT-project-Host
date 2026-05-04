@@ -39,6 +39,13 @@ export default function LoginScreen({ navigation }) {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
   const onSubmit = async () => {
     if (!validate()) return;
     try {
@@ -77,7 +84,7 @@ export default function LoginScreen({ navigation }) {
               <InputField
                 label="Email"
                 value={form.email}
-                onChangeText={(value) => setForm((prev) => ({ ...prev, email: value.replace(/\s/g, "") }))}
+                onChangeText={(value) => updateField("email", value.replace(/\s/g, ""))}
                 placeholder="Enter email"
                 keyboardType="email-address"
                 error={errors.email}
@@ -85,7 +92,7 @@ export default function LoginScreen({ navigation }) {
               <InputField
                 label="Password"
                 value={form.password}
-                onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
+                onChangeText={(value) => updateField("password", value)}
                 placeholder="Enter password"
                 secureTextEntry
                 error={errors.password}

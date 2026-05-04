@@ -74,6 +74,13 @@ export default function RegisterScreen({ navigation }) {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
   const onSubmit = async () => {
     if (!validate()) return;
     try {
@@ -141,7 +148,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Name"
         value={form.name}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
+        onChangeText={(value) => updateField("name", value)}
         placeholder="Full name"
         autoCapitalize="words"
         error={errors.name}
@@ -150,7 +157,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Email"
         value={form.email}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, email: value.replace(/\s/g, "") }))}
+        onChangeText={(value) => updateField("email", value.replace(/\s/g, ""))}
         placeholder="Enter email"
         keyboardType="email-address"
         error={errors.email}
@@ -159,7 +166,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Password"
         value={form.password}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
+        onChangeText={(value) => updateField("password", value)}
         placeholder="Minimum 6 characters with letters and numbers"
         secureTextEntry
         error={errors.password}
@@ -168,7 +175,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Confirm Password"
         value={form.confirmPassword}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, confirmPassword: value }))}
+        onChangeText={(value) => updateField("confirmPassword", value)}
         placeholder="Re-enter password"
         secureTextEntry
         error={errors.confirmPassword}
@@ -198,7 +205,7 @@ export default function RegisterScreen({ navigation }) {
           <InputField
             label="Beautician Role"
             value={form.staffRole}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, staffRole: value }))}
+            onChangeText={(value) => updateField("staffRole", value)}
             placeholder="Hairdresser"
             autoCapitalize="words"
             error={errors.staffRole}
@@ -216,7 +223,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Phone"
         value={form.phone}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value.replace(/\D/g, "").slice(0, 10) }))}
+        onChangeText={(value) => updateField("phone", value.replace(/\D/g, "").slice(0, 10))}
         placeholder="07xxxxxxxx"
         keyboardType="phone-pad"
         maxLength={10}
@@ -226,7 +233,7 @@ export default function RegisterScreen({ navigation }) {
       <InputField
         label="Referral Code (optional)"
         value={form.referredByCode}
-        onChangeText={(value) => setForm((prev) => ({ ...prev, referredByCode: normalizeReferralCode(value) }))}
+        onChangeText={(value) => updateField("referredByCode", normalizeReferralCode(value))}
         placeholder="Friend's referral code"
         autoCapitalize="characters"
         maxLength={16}
