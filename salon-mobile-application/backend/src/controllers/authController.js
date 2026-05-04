@@ -19,9 +19,24 @@ const toUserPayload = (user) => ({
   profileImage: user.profileImage || ""
 });
 
-const verifyGoogleToken = async (idToken) => {
-  const audience = process.env.GOOGLE_CLIENT_ID;
-  if (!audience) {
+const getGoogleAudiences = () =>
+  String(process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+const normalizeGoogleProfile = (payload = {}) => ({
+  providerId: String(payload.sub || payload.id || "").trim(),
+  email: String(payload.email || "")
+    .trim()
+    .toLowerCase(),
+  name: String(payload.name || "").trim(),
+  picture: String(payload.picture || "").trim()
+});
+
+const verifyGoogleIdToken = async (idToken) => {
+  const audience = getGoogleAudiences();
+  if (!audience.length) {
     throw new Error("Missing GOOGLE_CLIENT_ID");
   }
 
@@ -29,16 +44,38 @@ const verifyGoogleToken = async (idToken) => {
     idToken,
     audience
   });
-  const payload = ticket.getPayload() || {};
+  return normalizeGoogleProfile(ticket.getPayload() || {});
+};
 
-  return {
-    providerId: payload.sub,
-    email: String(payload.email || "")
-      .trim()
-      .toLowerCase(),
-    name: String(payload.name || "").trim(),
-    picture: String(payload.picture || "").trim()
-  };
+const verifyGoogleAccessToken = async (accessToken) => {
+  const audience = getGoogleAudiences();
+  if (audience.length) {
+    const tokenInfo = await googleClient.getTokenInfo(accessToken);
+    if (!audience.includes(tokenInfo?.aud)) {
+      throw new Error("Google token audience is not allowed");
+    }
+  }
+
+  const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  const profile = await profileResponse.json();
+  if (!profileResponse.ok || !profile?.sub) {
+    throw new Error("Invalid Google access token");
+  }
+  return normalizeGoogleProfile(profile);
+};
+
+const verifyGoogleToken = async ({ idToken, accessToken }) => {
+  if (String(idToken || "").trim()) {
+    return verifyGoogleIdToken(String(idToken || "").trim());
+  }
+  if (String(accessToken || "").trim()) {
+    return verifyGoogleAccessToken(String(accessToken || "").trim());
+  }
+  throw new Error("Google token is required");
 };
 
 const verifyFacebookAccessToken = async (accessToken) => {
@@ -198,10 +235,10 @@ const socialLogin = async (req, res, next) => {
 
     let verifiedProfile = null;
     if (normalizedProvider === "google") {
-      if (!String(idToken || "").trim()) {
-        return res.status(400).json({ message: "idToken is required for Google login" });
+      if (!String(idToken || "").trim() && !String(accessToken || "").trim()) {
+        return res.status(400).json({ message: "Google token is required" });
       }
-      verifiedProfile = await verifyGoogleToken(String(idToken || "").trim());
+      verifiedProfile = await verifyGoogleToken({ idToken, accessToken });
     } else if (normalizedProvider === "facebook") {
       if (!String(accessToken || "").trim()) {
         return res.status(400).json({ message: "accessToken is required for Facebook login" });
