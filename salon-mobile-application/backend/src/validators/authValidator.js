@@ -64,8 +64,12 @@ const socialLoginValidation = [
     const provider = String(req.body.provider || "")
       .trim()
       .toLowerCase();
-    if (provider === "google" && !String(req.body.idToken || "").trim()) {
-      throw new Error("idToken is required for Google login");
+    if (
+      provider === "google" &&
+      !String(req.body.idToken || "").trim() &&
+      !String(req.body.accessToken || "").trim()
+    ) {
+      throw new Error("Google token is required");
     }
     if (provider === "facebook" && !String(req.body.accessToken || "").trim()) {
       throw new Error("accessToken is required for Facebook login");
